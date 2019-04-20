@@ -221,6 +221,8 @@ class RandomRotate(object):
                 resample=Image.NEAREST,
                 fillcolor=250,
                 shear=0.0,
+
+
             ),
         )
 

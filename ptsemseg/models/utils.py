@@ -812,3 +812,4 @@ def get_upsampling_weight(in_channels, out_channels, kernel_size):
     weight = np.zeros((in_channels, out_channels, kernel_size, kernel_size), dtype=np.float64)
     weight[range(in_channels), range(out_channels), :, :] = filt
     return torch.from_numpy(weight).float()
+

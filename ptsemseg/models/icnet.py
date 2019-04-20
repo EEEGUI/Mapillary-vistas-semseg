@@ -212,7 +212,7 @@ class icnet(nn.Module):
         x_sub12 = F.interpolate(
             x_sub12, size=get_interp_size(x_sub12, z_factor=2), mode="bilinear", align_corners=True
         )
-        x_sub4 = self.res_block3_identity(x_sub4)
+        # x_sub4 = self.res_block3_identity(x_sub4)
         sub124_cls = self.classification(x_sub12)
 
         if self.training:

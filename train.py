@@ -31,7 +31,7 @@ def train(cfg, writer, logger):
     random.seed(cfg.get("seed", 1337))
 
     # Setup device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(cfg['device'])
 
     # Setup Augmentations
     augmentations = cfg["training"].get("augmentations", None)
@@ -74,7 +74,7 @@ def train(cfg, writer, logger):
     # Setup Model
     model = get_model(cfg["model"], n_classes).to(device)
 
-    model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
+    # model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count()))
 
     # Setup optimizer, lr_scheduler and loss function
     optimizer_cls = get_optimizer(cfg)
@@ -91,19 +91,24 @@ def train(cfg, writer, logger):
     start_iter = 0
     if cfg["training"]["resume"] is not None:
         if os.path.isfile(cfg["training"]["resume"]):
-            logger.info(
-                "Loading model and optimizer from checkpoint '{}'".format(cfg["training"]["resume"])
-            )
-            checkpoint = torch.load(cfg["training"]["resume"])
-            model.load_state_dict(checkpoint["model_state"])
-            optimizer.load_state_dict(checkpoint["optimizer_state"])
-            scheduler.load_state_dict(checkpoint["scheduler_state"])
-            start_iter = checkpoint["epoch"]
-            logger.info(
-                "Loaded checkpoint '{}' (iter {})".format(
-                    cfg["training"]["resume"], checkpoint["epoch"]
+            if 'best' in cfg["training"]["resume"]:
+                logger.info(
+                    "Loading model and optimizer from checkpoint '{}'".format(cfg["training"]["resume"])
                 )
-            )
+                checkpoint = torch.load(cfg["training"]["resume"])
+                optimizer.load_state_dict(checkpoint["optimizer_state"])
+                scheduler.load_state_dict(checkpoint["scheduler_state"])
+                start_iter = checkpoint["epoch"]
+                logger.info(
+                    "Loaded checkpoint '{}' (iter {})".format(
+                        cfg["training"]["resume"], checkpoint["epoch"]
+                    )
+                )
+            else:
+                pretrain_param = torch.load(cfg["training"]["resume"])['model_state']
+                param = model.state_dict()
+                param.update({k.replace('module.', ''):v for (k, v) in pretrain_param.items() if 'classifi' not in k})
+                model.load_state_dict(param)
         else:
             logger.info("No checkpoint found at '{}'".format(cfg["training"]["resume"]))
 
@@ -113,7 +118,7 @@ def train(cfg, writer, logger):
     best_iou = -100.0
     i = start_iter
     flag = True
-
+    optimizer.zero_grad()
     while i <= cfg["training"]["train_iters"] and flag:
         for (images, labels) in trainloader:
             i += 1
@@ -122,18 +127,16 @@ def train(cfg, writer, logger):
             model.train()
             images = images.to(device)
             labels = labels.to(device)
-
-            optimizer.zero_grad()
             outputs = model(images)
-
             loss = loss_fn(input=outputs, target=labels)
-
             loss.backward()
+
             optimizer.step()
+            optimizer.zero_grad()
 
             time_meter.update(time.time() - start_ts)
 
-            if (i + 1) % cfg["training"]["print_interval"] == 0:
+            if (i+1) % cfg["training"]["print_interval"] == 0:
                 fmt_str = "Iter [{:d}/{:d}]  Loss: {:.4f}  Time/Image: {:.4f}"
                 print_str = fmt_str.format(
                     i + 1,
@@ -141,13 +144,12 @@ def train(cfg, writer, logger):
                     loss.item(),
                     time_meter.avg / cfg["training"]["batch_size"],
                 )
-
-                print(print_str)
                 logger.info(print_str)
                 writer.add_scalar("loss/train_loss", loss.item(), i + 1)
+                writer.add_scalar('learning_rate', scheduler.get_lr()[0], i + 1)
                 time_meter.reset()
 
-            if (i + 1) % cfg["training"]["val_interval"] == 0 or (i + 1) == cfg["training"][
+            if (i+1) % cfg["training"]["val_interval"] == 0 or (i + 1) == cfg["training"][
                 "train_iters"
             ]:
                 model.eval()
@@ -207,7 +209,7 @@ if __name__ == "__main__":
         "--config",
         nargs="?",
         type=str,
-        default="configs/fcn8s_pascal.yml",
+        default="configs/icnet_mapillary.yml",
         help="Configuration file to use",
     )
 
@@ -216,7 +218,7 @@ if __name__ == "__main__":
     with open(args.config) as fp:
         cfg = yaml.load(fp)
 
-    run_id = random.randint(1, 100000)
+    run_id = 420
     logdir = os.path.join("runs", os.path.basename(args.config)[:-4], str(run_id))
     writer = SummaryWriter(log_dir=logdir)
 
