@@ -33,13 +33,13 @@ training:
 testing:
     model_path: assets/icnetBN_vistas_best_model.pkl
     config_path: configs
-
-    img_fold: inputs
+    img_fold: imgInputs
     video_fold: videoInputs
     output_fold: outputs
     img_rows: 1025
     img_cols: 2049
-    bs: 1
+    downsample: 3
+    bs: 8
 
 
 device: cuda
