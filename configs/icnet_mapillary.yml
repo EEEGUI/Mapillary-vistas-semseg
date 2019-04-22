@@ -9,7 +9,7 @@ data:
     path: /home/lin/Documents/dataset/mapillary
 training:
     train_iters: 45000
-    batch_size: 4
+    batch_size: 1
     n_workers: 0
     val_interval: 1000
     print_interval: 25
@@ -24,11 +24,23 @@ training:
     loss:
         name: multi_scale_cross_entropy
     momentum: 0.99
-    resume: runs/icnet_mapillary/icnetBN_cityscapes_trainval_90k.pth
+    resume: assets/icnetBN_vistas_best_model.pkl
     visdom: False
     augmentations:
         hflip: 0.5
         rotate: 6
     accum_steps: 2
+testing:
+    model_path: assets/icnetBN_vistas_best_model.pkl
+    config_path: configs
+
+    img_fold: inputs
+    video_fold: videoInputs
+    output_fold: outputs
+    img_rows: 1025
+    img_cols: 2049
+    bs: 1
+
+
 device: cuda
 

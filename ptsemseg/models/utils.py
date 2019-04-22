@@ -542,15 +542,13 @@ class pyramidPooling(nn.Module):
     def forward(self, x):
         h, w = x.shape[2:]
 
-        if self.training or self.model_name != "icnet":  # general settings or pspnet
-            k_sizes = []
-            strides = []
-            for pool_size in self.pool_sizes:
-                k_sizes.append((int(h / pool_size), int(w / pool_size)))
-                strides.append((int(h / pool_size), int(w / pool_size)))
-        else:  # eval mode and icnet: pre-trained for 1025 x 2049
-            k_sizes = [(8, 15), (13, 25), (17, 33), (33, 65)]
-            strides = [(5, 10), (10, 20), (16, 32), (33, 65)]
+
+        k_sizes = []
+        strides = []
+        for pool_size in self.pool_sizes:
+            k_sizes.append((int(h / pool_size), int(w / pool_size)))
+            strides.append((int(h / pool_size), int(w / pool_size)))
+
 
         if self.fusion_mode == "cat":  # pspnet: concat (including x)
             output_slices = [x]

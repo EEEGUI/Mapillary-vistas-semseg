@@ -9,13 +9,12 @@ from PIL import Image
 from ptsemseg.utils import recursive_glob
 from ptsemseg.augmentations import Compose, RandomHorizontallyFlip, RandomRotate
 
-
 class mapillaryVistasLoader(data.Dataset):
     def __init__(
         self,
         root,
         split="training",
-        img_size=(640, 1280),
+        img_size=(1025, 2049),
         is_transform=True,
         augmentations=None,
         test_mode=False,
@@ -30,19 +29,19 @@ class mapillaryVistasLoader(data.Dataset):
         self.mean = np.array([80.5423, 91.3162, 81.4312])
         self.files = {}
 
-        self.images_base = os.path.join(self.root, self.split, "images")
-        self.annotations_base = os.path.join(self.root, self.split, "labels")
+        if not test_mode:
+            self.images_base = os.path.join(self.root, self.split, "images")
+            self.annotations_base = os.path.join(self.root, self.split, "labels")
+            self.files[split] = recursive_glob(rootdir=self.images_base, suffix=".jpg")
+            if not self.files[split]:
+                raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
 
-        self.files[split] = recursive_glob(rootdir=self.images_base, suffix=".jpg")
-
+            print("Found %d %s images" % (len(self.files[split]), split))
         self.class_names, self.class_ids, self.class_colors, self.class_major_ids = self.parse_config()
 
         self.ignore_id = 250
 
-        if not self.files[split]:
-            raise Exception("No files for split=[%s] found in %s" % (split, self.images_base))
 
-        print("Found %d %s images" % (len(self.files[split]), split))
 
     def parse_config(self):
         with open(os.path.join(self.root, "config.json")) as config_file:
@@ -78,13 +77,10 @@ class mapillaryVistasLoader(data.Dataset):
 
         img = Image.open(img_path)
         lbl = Image.open(lbl_path)
-        a = np.array(lbl)
         if self.augmentations is not None:
             img, lbl = self.augmentations(img, lbl)
-        b = np.array(lbl)
         if self.is_transform:
             img, lbl = self.transform(img, lbl)
-        c = np.array(lbl)
         return img, lbl
 
     def transform(self, img, lbl):
@@ -148,14 +144,12 @@ if __name__ == "__main__":
 
     local_path = "/home/lin/Documents/dataset/mapillary"
     dst = mapillaryVistasLoader(
-        local_path, img_size=(512, 1024), is_transform=True, augmentations=augment
+        local_path, split='validation', img_size=(512, 1024), is_transform=True, augmentations=None
     )
-    bs = 8
+    bs = 1
     trainloader = data.DataLoader(dst, batch_size=bs, num_workers=4, shuffle=True)
     for i, data_samples in enumerate(trainloader):
         x = dst.decode_segmap(data_samples[1][0].numpy())
         x = Image.fromarray(np.uint8(x))
         x.show()
-        print("batch :", i)
-        if i > 6:
-            break
+
